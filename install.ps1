@@ -1,6 +1,6 @@
 param($Distro, $User)
 
-$repoUrl = 'https://github.com/diddlesnaps/one-script-wsl2-systemd/raw/master/'
+$repoUrl = 'https://raw.githubusercontent.com/dp-152/one-script-wsl2-systemd/no-gpg/'
 
 # The main files to install.
 $files = @{
