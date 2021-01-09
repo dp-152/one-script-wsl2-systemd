@@ -12,6 +12,7 @@ SYSTEMD_EXE="$SYSTEMD_EXE --unit=multi-user.target" # snapd requires multi-user.
 SYSTEMD_PID="$(ps -eo pid=,args= | awk '$2" "$3=="'"$SYSTEMD_EXE"'" {print $1}')"
 
 if [ -z "$SYSTEMD_PID" ] || [ "$SYSTEMD_PID" -ne 1 ]; then
+	echo "System is not in systemd namespace - running script..."
         if [ -z "$SUDO_USER" ]; then
                 export > "$HOME/.profile-systemd"
         fi
@@ -20,13 +21,13 @@ if [ -z "$SYSTEMD_PID" ] || [ "$SYSTEMD_PID" -ne 1 ]; then
                 exec sudo /bin/sh "/etc/profile.d/00-wsl2-systemd.sh"
         fi
 
-        if [ ! -f /etc/environment.orig ]; then
-                cp /etc/environment /etc/environment.orig
-        else
-                cp /etc/environment.orig /etc/environment
-        fi
-        echo "WSL_INTEROP='$WSL_INTEROP'" >> /etc/environment
-        echo "DISPLAY='$(awk '/nameserver/ { print $2":0" }' /etc/resolv.conf)'" >> /etc/environment
+	env_file="/tmp/$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)-wsl2-systemd-env.sh"
+
+        echo "WSL_INTEROP='$WSL_INTEROP'" > $env_file
+        echo "DISPLAY='$(awk '/nameserver/ { print $2":0" }' /etc/resolv.conf)'" >> $env_file
+
+	. $env_file
+	unset env_file
 
         if [ -z "$SYSTEMD_PID" ]; then
                 env -i /usr/bin/unshare --fork --mount-proc --pid -- sh -c "
@@ -53,3 +54,6 @@ if [ -d "$HOME/.wslprofile.d" ]; then
         done
         unset script
 fi
+echo "Systemd environment loaded"
+clear
+
