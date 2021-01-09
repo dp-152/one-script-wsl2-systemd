@@ -27,22 +27,6 @@ $files = @{
     }
 }
 
-# These depend on the npiperelay.exe so we include them separately.
-$agentfiles = @{
-    'gpg-agent.sh' = @{
-        'source' = 'src/profile.d/gpg-agent.sh';
-        'dest' = '$HOME/.wslprofile.d/gpg-agent.sh'
-        'errorMessage' = 'Could not fetch the GPG agent script. Continuing without it.'
-    };
-    'ssh-agent.sh' = @{
-        'source' = 'src/profile.d/ssh-agent.sh';
-        'dest' = '$HOME/.wslprofile.d/ssh-agent.sh'
-        'errorMessage' = 'Could not fetch the SSH agent script. Continuing without it.'
-    }
-}
-
-$npiperelayUrl = 'https://github.com/NZSmartie/npiperelay/releases/download/v0.1/npiperelay.exe'
-
 [string[]]$wslparams = $null
 if ($Distro) {
     $wslparams += '--distribution', $Distro
@@ -119,19 +103,6 @@ function Abort-Installation {
 
 Write-Output "--- Installing files in $Distro"
 Add-WslFiles -Files $files
-
-# Fetch agent sockets relay
-Write-Output "--- Installing SSH, GPG, etc. agent scripts in $Distro"
-$gpgsock = "$env:APPDATA/gnupg/S.gpg-agent".replace('\', '/')
-$relayexe = "$env:APPDATA/wsl2-ssh-gpg-agent-relay.exe".replace('\', '/')
-$relayResponse = Invoke-WebRequest -Uri $npiperelayUrl -UseBasicParsing -OutFile $relayexe -PassThru
-
-if ($relayResponse.StatusCode -eq 200) {
-    # Setup agent sockets
-    Add-WslFiles -Files $agentfiles -Replacements @{ '__RELAY_EXE__' = $relayexe; '__GPG_SOCK__' = $gpgsock }
-} else {
-    Write-Warning -Message 'Could not fetch the SSH, GPG, etc. agent relay proxy executable. Continuing without it.'
-}
 
 # Disable some systemd units that conflict with our setup
 Write-Output "--- Disabling conflicting systemd services in $distro"
@@ -260,20 +231,6 @@ if command -v wslview >/dev/null; then
     wslview --register
 fi
 '@
-
-# Install GPG4Win
-Write-Output '--- Installing GPG4Win in Windows'
-winget.exe install --silent gnupg.Gpg4win
-
-Write-Output '--- Adding a Windows scheduled tasks and starting services'
-
-$adminScript = "$env:TEMP/wsl2-systemd-services.ps1"
-$response = Invoke-WebRequest -Uri ($repoUrl + 'services.ps1') -OutFile $adminScript -PassThru -UseBasicParsing
-if ($response.StatusCode -eq 200) {
-    Start-Process -Verb RunAs -FilePath powershell.exe -Args '-NonInteractive', '-ExecutionPolicy', 'ByPass', $adminScript
-} else {
-    Write-Warning 'Could not fetch the script to set up your SSH & GPG Agents and update the custom WSL2 kernel'
-}
 
 Write-Output "`nDone."
 Write-Output "If you want to go back to the Microsoft kernel open a PowerShell or CMD window and run:"
